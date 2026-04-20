@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融新闻看板 | 实时数据处理演示</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto+Sans+SC', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .animate-pulse-slow {
+            animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 模拟分析引擎 (从 Python 移植) ---
+        const sectors = [
+            "银行", "房地产", "非银金融", "医药生物",
+            "计算机", "电子", "通信", "传媒", 
+            "公用事业", "钢铁", "煤炭", "有色金属",
+            "基础化工", "国防军工", "汽车", "家用电器",
+            "食品饮料", "纺织服饰", "轻工制造", 
+            "社会服务", "商贸零售", "交通运输",
+            "农林牧渔", "建筑材料", "建筑装饰", "电力设备",
+            "环保", "石油石化"
+        ];
+
+        const mockNewsPool = [
+            { title: "美联储暗示可能暂停加息，因通胀小幅降温", platform: "Bloomberg" },
+            { title: "科技巨头在欧盟市场面临新的反垄断调查", platform: "Reuters" },
+            { title: "欧佩克意外减产后，全球油价飙升4%", platform: "Bloomberg" },
+            { title: "银行业韧性在最新流动性压力测试中得到验证", platform: "财新" },
+            { title: "亚洲主要经济体签署新贸易协定，有望提振电子产品出口", platform: "华尔街见闻" },
+            { title: "房地产开发商月度销售数据出现回升", platform: "Reuters" },
+            { title: "电动汽车电池技术取得突破，成本降低30%", platform: "Bloomberg" },
+            { title: "央行维持当前准备金率，重点关注金融稳定性", platform: "财新" }
+        ];
+
+        const analyzeNews = (news) => {
+            const impactSectors = {};
+            
+            // 模拟关键字匹配演示
+            if (news.title.includes('美联储') || news.title.includes('加息') || news.title.includes('央行')) {
+                impactSectors["银行"] = Math.floor(Math.random() * 5) - 2;
+                impactSectors["非银金融"] = Math.floor(Math.random() * 5) - 3;
+            }
+            if (news.title.includes('科技') || news.title.includes('电子') || news.title.includes('电池')) {
+                impactSectors["计算机"] = Math.floor(Math.random() * 10) - 5;
+                impactSectors["电子"] = Math.floor(Math.random() * 10) - 5;
+            }
+            if (news.title.includes('油价') || news.title.includes('欧佩克')) {
+                impactSectors["石油石化"] = Math.floor(Math.random() * 5) + 1;
+                impactSectors["交通运输"] = Math.floor(Math.random() * 5) - 5;
+            }
+            if (news.title.includes('房地产')) {
+                impactSectors["房地产"] = Math.floor(Math.random() * 10) - 4;
+            }
+
+            // 如果没有匹配到，随机填充一些板块
+            if (Object.keys(impactSectors).length === 0) {
+                const randomSector = sectors[Math.floor(Math.random() * sectors.length)];
+                impactSectors[randomSector] = Math.floor(Math.random() * 10) - 5;
+            }
+
+            const credibility = 70 + Math.floor(Math.random() * 25);
+            
+            return {
+                ...news,
+                id: Math.random().toString(36).substr(2, 9),
+                timestamp: new Date().toISOString(),
+                credibility_score: credibility,
+                sector_impacts: impactSectors,
+                ai_summary: `【事件】${news.title}\n【传导】此消息通过政策预期和行业基本面传导，将显著影响相关板块的估值水平。\n【影响】建议关注${Object.keys(impactSectors).join('、')}板块的波动风险。`
+            };
+        };
+
+        const Dashboard = () => {
+            const [news, setNews] = useState([]);
+            const [heatMapData, setHeatMapData] = useState({});
+            const [systemStatus, setSystemStatus] = useState('正在初始化...');
+            const [latency, setLatency] = useState(0);
+
+            useEffect(() => {
+                setSystemStatus('系统运行中 (演示模式)');
+                
+                // 模拟数据循环
+                const interval = setInterval(() => {
+                    const startTime = performance.now();
+                    const rawNews = mockNewsPool[Math.floor(Math.random() * mockNewsPool.length)];
+                    const processedNews = analyzeNews(rawNews);
+                    
+                    setNews(prev => [processedNews, ...prev].slice(0, 10));
+                    setHeatMapData(prev => ({
+                        ...prev,
+                        ...processedNews.sector_impacts
+                    }));
+                    
+                    setLatency(Math.floor(performance.now() - startTime + 40)); // 模拟处理延迟
+                }, 4000);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            const getImpactColor = (impact) => {
+                if (impact > 3) return 'bg-emerald-600 text-white shadow-md shadow-emerald-100';
+                if (impact > 0) return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                if (impact < -3) return 'bg-rose-600 text-white shadow-md shadow-rose-100';
+                if (impact < 0) return 'bg-rose-100 text-rose-800 border border-rose-200';
+                return 'bg-slate-50 text-slate-400 border border-slate-100';
+            };
+
+            return (
+                <div className="min-h-screen">
+                    <div className="max-w-7xl mx-auto px-4 py-8">
+                        {/* 顶部标题栏 */}
+                        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                                    </div>
+                                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+                                        新闻<span className="text-blue-600">看板</span> <span className="text-slate-400 font-light">专业版</span>
+                                    </h1>
+                                </div>
+                                <p className="text-slate-500 font-medium pl-13">分布式智能资讯处理系统</p>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="flex flex-col items-end">
+                                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">{systemStatus}</span>
+                                    </div>
+                                    <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                                        端到端延迟: {latency}ms
+                                    </div>
+                                </div>
+                                <div className="h-10 w-px bg-slate-200 mx-2 hidden md:block"></div>
+                                <div className="text-right">
+                                    <div className="text-sm font-bold text-slate-900">{new Date().toLocaleTimeString()}</div>
+                                    <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        </header>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                            {/* 左侧：新闻流 */}
+                            <div className="lg:col-span-8 space-y-8">
+                                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                                        <span className="w-1.5 h-6 bg-blue-600 rounded-full"></span>
+                                        实时分析资讯流
+                                    </h2>
+                                    <div className="flex gap-2">
+                                        <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full">全渠道来源</span>
+                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full">AI 增强</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    {news.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2rem] border-2 border-dashed border-slate-100 shadow-sm">
+                                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                                                <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                            </div>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">正在扫描 20+ 权威资讯平台...</p>
+                                        </div>
+                                    ) : (
+                                        news.map((item, idx) => (
+                                            <div key={item.id} className={`group bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-50/50 hover:border-blue-100 transition-all duration-500 relative overflow-hidden ${idx === 0 ? 'ring-2 ring-blue-500/10' : ''}`}>
+                                                {idx === 0 && <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>}
+                                                
+                                                <div className="flex justify-between items-start mb-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
+                                                            {item.platform}
+                                                        </div>
+                                                        <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                                                        <div className="text-[10px] text-slate-400 font-bold tracking-wider">
+                                                            {new Date(item.timestamp).toLocaleTimeString()}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">可信度量化</div>
+                                                        <div className={`text-xl font-black tabular-nums ${item.credibility_score >= 85 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                            {item.credibility_score}<span className="text-xs opacity-50 ml-0.5">%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <h3 className="text-2xl font-extrabold text-slate-900 mb-6 leading-[1.3] group-hover:text-blue-700 transition-colors">
+                                                    {item.title}
+                                                </h3>
+                                                
+                                                <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100/50 relative">
+                                                    <div className="absolute -top-3 left-6 px-3 py-1 bg-white border border-slate-100 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-widest shadow-sm">
+                                                        BERT 逻辑分析
+                                                    </div>
+                                                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                                                        {item.ai_summary.split('\n').map((line, i) => (
+                                                            <span key={i} className="block mb-2 last:mb-0">{line}</span>
+                                                        ))}
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-3">
+                                                    {Object.entries(item.sector_impacts).map(([sector, impact]) => (
+                                                        <div key={sector} className={`px-4 py-2 rounded-xl text-[11px] font-extrabold transition-all hover:scale-105 cursor-default ${getImpactColor(impact)}`}>
+                                                            {sector} <span className="ml-1 opacity-70">{impact > 0 ? `+${impact}` : impact}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 右侧：市场热力图 */}
+                            <div className="lg:col-span-4 space-y-10">
+                                <div className="space-y-6">
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                                        <span className="w-1.5 h-6 bg-emerald-500 rounded-full"></span>
+                                        市场情绪热力图
+                                    </h2>
+                                    
+                                    <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {sectors.map(sector => {
+                                                const impact = heatMapData[sector] || 0;
+                                                return (
+                                                    <div key={sector} className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-4 text-center transition-all duration-700 hover:scale-[1.05] ${getImpactColor(impact)}`}>
+                                                        <div className="text-[9px] font-black opacity-80 mb-2 leading-tight uppercase tracking-tighter h-8 flex items-center">
+                                                            {sector}
+                                                        </div>
+                                                        <div className="text-2xl font-black tabular-nums">
+                                                            {impact === 0 ? '--' : (impact > 0 ? `+${impact}` : impact)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="mt-10 pt-8 border-t border-slate-100">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">影响强度色阶</h4>
+                                                <div className="text-[10px] font-bold text-slate-400">申万一级行业</div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                                                        <div className="w-1/3 h-full bg-rose-500"></div>
+                                                        <div className="w-1/3 h-full bg-slate-200"></div>
+                                                        <div className="w-1/3 h-full bg-emerald-500"></div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between text-[10px] font-black text-slate-400">
+                                                    <span>看空 (-5)</span>
+                                                    <span>中性</span>
+                                                    <span>看多 (+5)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-200 relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-600/40 transition-colors"></div>
+                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                        部署运行信息
+                                    </h3>
+                                    <div className="space-y-4 text-xs font-medium text-slate-400">
+                                        <div className="flex justify-between">
+                                            <span>运行环境</span>
+                                            <span className="text-white">Trae Sandbox</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>NLP 引擎</span>
+                                            <span className="text-white">FinBERT-v2</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>内容去重</span>
+                                            <span className="text-white">SimHash (k=3)</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>用户并发容量</span>
+                                            <span className="text-white">10万级</span>
+                                        </div>
+                                    </div>
+                                    <button className="w-full mt-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border border-white/10">
+                                        查看系统运行日志
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>
